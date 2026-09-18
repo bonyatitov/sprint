@@ -51,9 +51,11 @@ cd sprint-planner
 docker compose up -d --build
 ```
 
-По умолчанию приложение будет доступно на порту `8080` (см.
-`docker-compose.yml`, маппинг `"8080:80"` — при необходимости замените
-порт слева на нужный) — то есть `http://<ip-впс>:8080`.
+Порт `8080` привязан только к `127.0.0.1` (см. `docker-compose.yml`) —
+снаружи по IP ВПС приложение не открывается, доступ к нему есть только у
+процессов на самом сервере. Чтобы отдать приложение наружу под доменом и
+HTTPS, настройте reverse-proxy на хосте — см. раздел «Домен и HTTPS»
+ниже.
 
 Для обновления после изменений в коде:
 
@@ -62,17 +64,46 @@ git pull
 docker compose up -d --build
 ```
 
-Если приложение должно отдаваться по HTTPS на реальном домене, поставьте
-перед контейнером обратный проксирующий Nginx/Caddy на хосте (или
-добавьте Traefik/Certbot) — сам контейнер отдаёт только plain HTTP на
-порту 80.
-
 Собрать и запустить без Compose:
 
 ```bash
 docker build -t sprint-planner .
-docker run -d --name sprint-planner -p 8080:80 --restart unless-stopped sprint-planner
+docker run -d --name sprint-planner -p 127.0.0.1:8080:80 --restart unless-stopped sprint-planner
 ```
+
+## Домен и HTTPS (Nginx + Certbot на хосте)
+
+Контейнер отдаёт только plain HTTP на порту 8080, привязанном к
+`127.0.0.1` — сам домен и HTTPS настраиваются reverse-proxy'ем на хосте
+ВПС, а не в контейнере.
+
+1. У DNS-провайдера домена добавьте A-запись `sprint.bonya-dev.ru` →
+   IP-адрес ВПС.
+
+2. На сервере установите Nginx и Certbot (если ещё не установлены):
+
+   ```bash
+   sudo apt install nginx certbot python3-certbot-nginx
+   ```
+
+3. Разверните готовый конфиг из `deploy/nginx-host.conf`:
+
+   ```bash
+   sudo cp deploy/nginx-host.conf /etc/nginx/sites-available/sprint.bonya-dev.ru
+   sudo ln -s /etc/nginx/sites-available/sprint.bonya-dev.ru /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+4. Выпустите сертификат — Certbot сам допишет блок `listen 443 ssl` в
+   этот конфиг и настроит автообновление сертификата по cron/systemd-таймеру:
+
+   ```bash
+   sudo certbot --nginx -d sprint.bonya-dev.ru
+   ```
+
+5. Откройте порты 80 и 443 в файрволе (например `sudo ufw allow 80,443/tcp`).
+   Порт 8080 наружу открывать не нужно — контейнер слушает только
+   `127.0.0.1:8080`, доступ к нему есть только у Nginx на этом же хосте.
 
 ## Лицензия
 
