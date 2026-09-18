@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+  min-height: 100vh;
+  background-color: var(--background);
+}
+
+/*
+ * HeroUI's default field tokens (--field-border) resolve to "transparent" by
+ * design, which leaves the checkbox indistinguishable from a same-colored
+ * card surface. Give it a theme-aware visible outline instead.
+ */
+.checkbox__control {
+  border-width: 1.5px;
+  border-color: color-mix(in oklab, var(--foreground) 32%, transparent);
+}
+
+.checkbox[data-selected="true"] .checkbox__control,
+.checkbox[data-indeterminate="true"] .checkbox__control {
+  border-color: transparent;
+}
